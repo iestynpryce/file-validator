@@ -15,19 +15,22 @@ def teardown():
 
 # Validate footer tests
 def test_validate_footer_ok():
-    assert v.validate_footer("F|test|4", 4, "test") == True
+    assert v.validate_footer("F|test|20150601_203200|4", 4, "test", "20150601_203200") == True
 
 def test_validate_footer_prefix():
-    assert v.validate_footer("B|test|4", 4, "test") == False
+    assert v.validate_footer("B|test|20150601_203200|4", 4, "test", "20150601_203200") == False
 
 def test_validate_footer_interface():
-    assert v.validate_footer("F|badtest|4", 4, "test") == False
+    assert v.validate_footer("F|badtest|20150601_203200|4", 4, "test", "20150601_203200") == False
 
 def test_validate_footer_nlines():
-    assert v.validate_footer("F|test|0", 4, "test") == False
+    assert v.validate_footer("F|test|20150601_203200|0", 4, "test", "20150601_203200") == False
+
+def test_validate_footer_datetime():
+    assert v.validate_footer("F|test|20150601_203200|4", 4, "test", "20150201_033200") == False
 
 def test_validate_footer_empty():
-    assert v.validate_footer("", 4, "test") == False
+    assert v.validate_footer("", 4, "test", "20150601_203200") == False
 
 # Validate header
 def test_validate_header_ok():

@@ -42,7 +42,7 @@ class Validate():
                 self.field_mapping[field] = index
                 del(required_fields[field])
             else:
-                print("Error: field '" + field + "' found in header, but not in the configuration")
+                print("Error: header: field '" + field + "' found in header, but not in the configuration")
                 return False
      
         if len(required_fields) > 0:
@@ -54,7 +54,7 @@ class Validate():
         return True
 
 
-    def validate_footer(self, footer, nlines, interface_id):
+    def validate_footer(self, footer, nlines, interface_id, filename_dt):
         fields =  footer.split('|')
         prefix = fields[0]
         if prefix != 'F':
@@ -62,11 +62,15 @@ class Validate():
             return False
         interface = fields[1]
         if interface != interface_id:
-            print("Error: file group is '" + interface + "', '" + interface_id + "' expected.")
+            print("Error: footer file group is '" + interface + "', '" + interface_id + "' expected.")
             return False
-        read_obs = fields[2]
+        dt_stamp = fields[2]
+        if dt_stamp != filename_dt:
+            print("Error: footer datetimestamp is:", dt_stamp, "Expected:", filename_dt)
+            return False
+        read_obs = fields[3]
         if int(read_obs) != nlines:
-            print("Error:", nlines, "lines read", read_obs, "expected.")
+            print("Error: footer", nlines, "lines read", read_obs, "expected.")
             return False
 
         return True
@@ -76,7 +80,7 @@ class Validate():
         fields = line.split('|')
         prefix = fields[0]
         if prefix != 'B':
-            print("Error: body prefix is '" + prefix + "', 'B' expected. File line:", format(linenum))
+            print("Error: line", format(linenum), "body prefix is '" + prefix + "', 'B' expected.")
             return False
 
         for f, i in self.field_mapping.items():
@@ -84,12 +88,12 @@ class Validate():
             try:
                 field = fields[i]
             except IndexError:
-                print("Error: line", linenum, "column", i+1, "- field not found. Field name:", f)
+                print("Error: line", linenum, "column", i+1, "- field not found. (Field name:", f + ")")
                 return False
 
             # Check if it's within the length limits
             if len(field) > self.field_length[f]:
-                print("Error: line", linenum, "column", i+1, "- field too long.", len(field), ">", self.field_length[f])
+                print("Error: line", linenum, "column", i+1, "- field too long.", len(field), ">", self.field_length[f], "(Field name:", f + ")")
                 return False
 
             # Check the type of the field
@@ -115,6 +119,8 @@ class Validate():
         tree = ET.parse(config)
         root = tree.getroot()
 
+        error = False
+
         for interface in root.findall('interface'):
             fields = interface.find('fields')
             self.validator_setup(fields)
@@ -136,23 +142,32 @@ class Validate():
                     first_line = f.readline().rstrip()
                     last_line = f.readline().rstrip()
                     ok = self.validate_header(first_line, fields)
-                    if  self.diefast and not ok:
-                        sys.exit(-1)
+                    if  not ok:
+                        error = True
+                        if self.diefast:
+                            sys.exit(-1)
                     nlines += 1
                     for line in f:
                         nlines +=1
                         ok = self.validate_line(last_line, nlines, fields)
-                        if self.diefast and not ok:
-                           sys.exit(-1)
+                        if not ok:
+                            error = True
+                            if self.diefast:
+                                sys.exit(-1)
                         last_line = line.rstrip()
                     nlines += 1
-                    ok = self.validate_footer(last_line, nlines, group)
-                    if self.diefast and not ok:
-                       sys.exit(-1)
+                    ok = self.validate_footer(last_line, nlines, group, date_time)
+                    if not ok:
+                        error = True
+                        if self.diefast:
+                            sys.exit(-1)
             except IOError as e:
                 print("Error:", e.value)
                 return False
 
-            print("SUCCESS: validated", basename(filename), "from group:", group + ", subgroup:", sub_group + ", interface:", 
+            if not error:
+                print("SUCCESS: validated", basename(filename), "from group:", group + ", subgroup:", sub_group + ", interface:", 
                        interface_name +". Timestamp:", date_time)
-            return True
+                return True
+            else:
+                return False

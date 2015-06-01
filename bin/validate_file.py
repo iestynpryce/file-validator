@@ -8,5 +8,5 @@ parser.add_argument('--config', help="configuration file for file validator")
 parser.add_argument('--file', help="file to validate")
 args = parser.parse_args()
 
-v = vv.Validate()
+v = vv.Validate("validator.pickle",diefast=False)
 v.validate_file(args.config, args.file)
